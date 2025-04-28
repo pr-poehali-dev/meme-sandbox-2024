@@ -1,16 +1,21 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { addMeme, getCategories, addCategory } from "@/lib/storage";
+import { addMeme, getCategories, addCategory, uploadImage } from "@/lib/storage";
 import { Category } from "@/types";
 import Header from "@/components/Header";
 import { toast } from "@/components/ui/use-toast";
+import { useProfile } from "@/lib/useProfile";
 
 const AddMeme = () => {
   const navigate = useNavigate();
+  const { profile } = useProfile();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [title, setTitle] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  const [author, setAuthor] = useState("");
+  const [description, setDescription] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const [category, setCategory] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategory, setNewCategory] = useState("");
@@ -20,13 +25,41 @@ const AddMeme = () => {
     setCategories(getCategories());
   }, []);
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      setIsUploading(true);
+      const imageDataUrl = await uploadImage(file);
+      setImageUrl(imageDataUrl);
+    } catch (error: any) {
+      toast({
+        title: "Ошибка загрузки",
+        description: error.message || "Не удалось загрузить изображение",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleAddMeme = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title.trim() || !imageUrl.trim()) {
       toast({
         title: "Ошибка!",
-        description: "Название и URL картинки обязательны",
+        description: "Название и изображение обязательны",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!profile) {
+      toast({
+        title: "Необходимо войти",
+        description: "Для добавления мема нужно войти в аккаунт",
         variant: "destructive",
       });
       return;
@@ -37,7 +70,9 @@ const AddMeme = () => {
         title,
         image: imageUrl,
         category: category || categories[0]?.id || "",
-        author: author || "Анонимус",
+        author: profile.username,
+        authorId: profile.id,
+        description: description.trim() || undefined,
       });
       
       toast({
@@ -87,6 +122,34 @@ const AddMeme = () => {
     }
   };
 
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-6">
+          <div className="text-center py-10">
+            <h2 className="text-3xl font-bold mb-4 sharp-title">НУЖНО ВОЙТИ</h2>
+            <p className="mb-6 text-gray-600">Чтобы добавлять мемы, нужно войти в аккаунт</p>
+            <div className="flex justify-center gap-4">
+              <button 
+                onClick={() => navigate("/")}
+                className="rad-button px-4 py-2 bg-gray-300 text-black rounded"
+              >
+                На главную
+              </button>
+              <button 
+                onClick={() => navigate("/login")}
+                className="rad-button px-4 py-2 bg-gray-800 text-white rounded"
+              >
+                Войти
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -94,8 +157,8 @@ const AddMeme = () => {
       <main className="container mx-auto px-4 py-6">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8 text-center">
-            <h2 className="text-3xl font-bold mb-2 cool-title">ЗАЛЕЙ МЕМАС</h2>
-            <p className="text-gray-600">Просто вставь ссылку на картинку и заполни поля</p>
+            <h2 className="text-3xl font-bold mb-2 sharp-title">ЗАЛЕЙ МЕМАС</h2>
+            <p className="text-gray-600">Загружай картинку и заполняй поля</p>
           </div>
           
           <form onSubmit={handleAddMeme} className="space-y-6 bg-white p-6 rounded-lg border-2 border-gray-800">
@@ -109,25 +172,55 @@ const AddMeme = () => {
                 className="w-full cool-input p-2 rounded"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Введи крутое название"
+                placeholder="Введи крутое название (можно **жирный** и *курсив*)"
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Для форматирования: **жирный**, *курсив*, [текст ссылки](url)
+              </p>
             </div>
             
             <div>
-              <label className="block font-bold mb-2" htmlFor="imageUrl">
-                URL картинки*
+              <label className="block font-bold mb-2">
+                Изображение*
               </label>
-              <input
-                id="imageUrl"
-                type="text"
-                className="w-full cool-input p-2 rounded"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://example.com/meme.jpg"
-                required
-              />
-              {imageUrl && (
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rad-button px-4 py-2 bg-gray-800 text-white rounded"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Загрузить с устройства
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                  />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">или</span>
+                  <input
+                    type="text"
+                    className="flex-1 cool-input p-2 rounded"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="Вставь URL картинки"
+                  />
+                </div>
+              </div>
+              
+              {isUploading && (
+                <div className="mt-2 text-center">
+                  <p>Загрузка...</p>
+                </div>
+              )}
+              
+              {imageUrl && !isUploading && (
                 <div className="mt-2 border border-gray-300 rounded overflow-hidden">
                   <img 
                     src={imageUrl} 
@@ -142,17 +235,19 @@ const AddMeme = () => {
             </div>
             
             <div>
-              <label className="block font-bold mb-2" htmlFor="author">
-                Твой ник (необязательно)
+              <label className="block font-bold mb-2" htmlFor="description">
+                Описание (необязательно)
               </label>
-              <input
-                id="author"
-                type="text"
-                className="w-full cool-input p-2 rounded"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                placeholder="Кто ты такой?"
+              <textarea
+                id="description"
+                className="w-full cool-input p-2 rounded min-h-24"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Расскажи историю мема (можно **жирный** и *курсив*)"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Для форматирования: **жирный**, *курсив*, [текст ссылки](url)
+              </p>
             </div>
             
             <div>
@@ -194,6 +289,9 @@ const AddMeme = () => {
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                 >
+                  {categories.length === 0 && (
+                    <option value="">Нет категорий</option>
+                  )}
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name}
