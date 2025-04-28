@@ -1,24 +1,19 @@
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+
+import { Link } from "react-router-dom";
 
 const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error(
-      "404 Error: User attempted to access non-existent route:",
-      location.pathname
-    );
-  }, [location.pathname]);
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
       <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
+        <h1 className="text-9xl font-bold mb-4 cool-title">404</h1>
+        <h2 className="text-2xl font-bold mb-6">О НЕТ! МЕМ НЕ НАЙДЕН</h2>
+        <p className="mb-8 text-gray-600 max-w-lg mx-auto">
+          Возможно, мем был настолько смешным, что ушел в другую вселенную. Или просто страницы не существует ¯\_(ツ)_/¯
+        </p>
+        <div className="text-8xl mb-8">💀</div>
+        <Link to="/" className="rad-button px-6 py-3 bg-gray-800 text-white rounded-lg hover:bg-black inline-block">
+          ВЕРНИСЬ ДОМОЙ, БРАТАН
+        </Link>
       </div>
     </div>
   );
